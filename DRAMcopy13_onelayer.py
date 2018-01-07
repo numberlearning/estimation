@@ -167,3 +167,96 @@ def evaluate():
     batches_in_epoch = len(data.images) // batch_size
     accuracy = 0
     sumlabels = np.zeros(output_size)
+
+    for i in range(batches_in_epoch):
+        nextX, nextY = data.next_batch(batch_size)
+        sumlabels += np.sum(nextY, 0)
+        feed_dict = {x: nextX, onehot_labels: nextY}
+        c, mr, iimg, r, pred, cor = sess.run([classification, maxr, rr, reward, prediction, correct], feed_dict=feed_dict)
+        accuracy += r
+
+    accuracy /= batches_in_epoch
+
+    #print("CLASSIFICATION: " + str(c))
+    #print("MAX: " + str(mr))
+    #print("img: " + str(iimg)) 
+    print("ACCURACY: " + str(accuracy))
+    print("LabelSums: " + str(sumlabels))
+    print("CORRECT: " + str(cor))
+    print("PREDICTION: " + str(pred))
+    return accuracy
+
+## OPTIMIZER #################################################
+
+optimizer = tf.train.AdamOptimizer(learning_rate, epsilon=1)
+grads = optimizer.compute_gradients(predcost)
+
+for i, (g, v) in enumerate(grads):
+    if g is not None:
+        grads[i] = (tf.clip_by_norm(g, 5), v)
+train_op = optimizer.apply_gradients(grads)
+
+
+if __name__ == '__main__':
+    sess_config = tf.ConfigProto()
+    sess_config.gpu_options.allow_growth = True
+    sess = tf.InteractiveSession(config=sess_config)
+
+    saver = tf.train.Saver()
+    tf.global_variables_initializer().run()
+
+    if restore:
+        saver.restore(sess, load_file)
+
+    train_data = load_input.InputData()
+    train_data.get_train(None, min_blobs_train, max_blobs_train) # MT
+    fetches2=[]
+    fetches2.extend([reward, predcost, train_op])
+
+    start_time = time.clock()
+    extra_time = 0
+
+    sum_rwd = 0
+    sum_pc = 0
+
+    for i in range(start_restore_index, train_iters+1):
+        xtrain, ytrain = train_data.next_batch(batch_size)
+        results = sess.run(fetches2, feed_dict = {x: xtrain, onehot_labels: ytrain})
+        reward_fetched, predcost_fetched, _ = results
+        sum_rwd += reward_fetched # average over 100 batches
+        sum_pc += predcost_fetched
+
+        if i%100==0:
+            print("iter=%d : Reward: %f Pc: %f" % (i, sum_rwd/100, sum_pc/100))
+            sum_rwd = 0
+            sum_pc = 0
+            sys.stdout.flush()
+
+            if i%1000==0:
+                train_data = load_input.InputData()
+                train_data.get_train(None, min_blobs_train, max_blobs_train) # MT
+
+
+        if i in [0, 100, 200, 300, 400, 600, 800, 1200, 1600, 2400, 3200, 4800, 6400, 9600, 12800, 19200, 25600, 38400, 51200, 76800, 102400, 153600, 204800, 307200, 409600, 614400, 819200, 1000000, 1228800, 1638400, 2000000, 2457600, 3000000, 3276800, 4000000, 4915200, 5000000, 6000000, 6553600, 7000000]:
+            start_evaluate = time.clock()
+            test_accuracy = evaluate()
+            saver = tf.train.Saver(tf.global_variables())
+            print("Model saved in file: %s" % saver.save(sess, save_file + str(i) + ".ckpt"))
+            extra_time = extra_time + time.clock() - start_evaluate
+            print("--- %s CPU seconds ---" % (time.clock() - start_time - extra_time))
+            if i == 0:
+                log_file = open(log_filename, 'w')
+                settings_file = open(settings_filename, "w")
+                settings_file.write("learning_rate = " + str(learning_rate) + ", ")
+                settings_file.write("batch_size = " + str(batch_size) + ", ")
+                settings_file.write("min_edge = " + str(min_edge) + ", ")
+                settings_file.write("max_edge = " + str(max_edge) + ", ")
+                settings_file.write("min_blobs_train = " + str(min_blobs_train) + ", ")
+                settings_file.write("max_blobs_train = " + str(max_blobs_train) + ", ")
+                settings_file.write("min_blobs_test = " + str(min_blobs_test) + ", ")
+                settings_file.write("max_blobs_test = " + str(max_blobs_test) + ", ")
+                settings_file.close()
+            else:
+                log_file = open(log_filename, 'a')
+            log_file.write(str(time.clock() - start_time - extra_time) + "," + str(test_accuracy) + "\n")
+            log_file.close()
