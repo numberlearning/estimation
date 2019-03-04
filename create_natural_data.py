@@ -1,3 +1,10 @@
+# Four conditions in Experiment 2
+# 1) CTA and f(N)=1000 (constant)
+# 2) CTA and f(N)∝1/(N^2)
+# 3) CAA and f(N)=1000 (constant)
+# 4) CAA and f(N)∝1/(N^2)
+# where CTA denotes constant total area, CAA denotes constant average area
+
 import sys
 import numpy as np
 import random
@@ -40,7 +47,7 @@ def get_k(testing=False):
         return 3 # testing: k is set to 3 throughout
     else:
         return 3  # CAA
-        #return random.randint(2, 4) # DAA
+        #return random.randint(2, 4) # CTA
         # training: k is chosen from the uniform distribution of discrete values 2, 3, and 4
 
 
@@ -54,7 +61,7 @@ def get_s(testing=False, n=None):
             return random.uniform(.8, 1.2) # CAA, latter 500 displays
     else:
         return random.uniform(.8, 1.2) # CAA
-        #return random.uniform(.8*2 * (n ** (-.3154)), 1.2*2 * (n ** (-.3154))) # DAA
+        #return random.uniform(.8*2 * (n ** (-.3154)), 1.2*2 * (n ** (-.3154))) # CTA
 def pir(x):
     """Perform probabilistic integer rounding"""
 
